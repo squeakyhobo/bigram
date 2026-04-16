@@ -7,17 +7,22 @@ from time import sleep
 
 
 class Bigram(nn.Module):
-    def __init__(self,vocab_size,chars,temprature,num_embed,block_size):
+    def __init__(self,vocab_size,chars,temprature,num_embed,block_size,head_size):
         super().__init__()
         
         self.vocab_embedding_table = nn.Embedding(vocab_size,num_embed)
         self.positon_embedding = nn.Embedding(block_size,num_embed)
-        self.lm_head = nn.Linear(num_embed,vocab_size)
+        self.lm_head = nn.Linear(head_size,vocab_size)
+        self.key = nn.Linear(num_embed,head_size,bias =False)
+        self.query = nn.Linear(num_embed,head_size,bias= False)
+        self.value = nn.Linear(num_embed,head_size,bias= False)
+        self.tril = torch.tril(torch.ones(block_size, block_size))
 
         self.encoding_paring ={}
         self.decoding_paring ={}
         self.temprature =temprature
         self.block_size = block_size
+        self.head_size = head_size
 
         for encoding,char in enumerate(chars):
             self.encoding_paring[char] = encoding
@@ -32,12 +37,20 @@ class Bigram(nn.Module):
         token_embed = self.vocab_embedding_table(idx) 
         
         
-        x = token_embed + pos_embed
+        x = token_embed + pos_embed #the added up features of the token
+        # B,T,emb_num
         
+        k = self.key(x) # (B,T,head_size) have waht each token is  
+        q = self.query(x)# B,T,head_size) we have what each token is looking for 
+        v = self.value(x)
         
 
-
-        logits = self.lm_head(x)
+        # I now want each token in their respetice block size to communicate to each otehr and find what they are looking for 
+        wei = q @ k.transpose(-2, -1)
+        wei = wei.masked_fill(self.tril[:T, :T] == 0, float('-inf'))
+        wei = F.softmax(wei, dim=-1) # (B, T, T)
+        out = wei @ v # B,T,head_size
+        logits = self.lm_head(out)
         return logits
     
    
