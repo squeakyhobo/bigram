@@ -14,10 +14,11 @@ device = 'cpu'
 block_size = 8
 batch_size = 32
 learning_rate = 10e-3
-train_iterations = 1000
+train_iterations = 500
 eval_iterations = 500
 temprature =1.0
 number_embeddings = 32
+num_heads =4
 
 
 
@@ -63,7 +64,7 @@ def get_batch(data):
 def main():
 
 
-    model = Transformer(chars=chars,temprature=temprature) # init model
+    model = Transformer(chars=chars,temprature=temprature,num_embeddings=number_embeddings,block_size=block_size,num_heads=num_heads) # init model
     model.to(device)
 
     data = torch.tensor(model.encode(text), dtype=torch.long)  #encode whole dataset

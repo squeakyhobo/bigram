@@ -51,11 +51,13 @@ class MultiHeadedAttention(nn.Module):
     def __init__(self, num_heads, head_size, num_embeddings, block_size, temperature):
        super().__init__()
        self.heads=  nn.ModuleList(Head(temprature=temperature,num_embed=num_embeddings,block_size=block_size,head_size=head_size) for _ in range(num_heads))
+       self.projection = nn.Linear(num_embeddings,num_embeddings)
    
 
 
     def forward(self,x):
         out = torch.cat([h(x) for h in self.heads], dim=-1)
+        out = self.projection(out)
         return out 
             
 class Block(nn.Module):
@@ -64,12 +66,13 @@ class Block(nn.Module):
 
 
         self.heads = MultiHeadedAttention(num_heads,head_size,num_embeddings,block_size,temprature)
-        self.feed_forward = nn.Sequential(nn.Linear(num_embeddings,num_embeddings),
-                                          nn.ReLU())    
+        self.feed_forward = nn.Sequential(nn.Linear(num_embeddings,4*num_embeddings),
+                            nn.ReLU(),)
+        self.projection = nn.Linear(4*num_embeddings,num_embeddings)    
 
     def forward(self,x):
-        x =self.heads(x)
-        x= self.feed_forward(x)
+        x =x + self.heads(x)
+        x= x + self.projection(self.feed_forward(x))
 
         return x
 
@@ -77,7 +80,7 @@ class Block(nn.Module):
 
 class Transformer(nn.Module): 
 
-    def __init__(self,chars,temprature,num_embeddings=64,block_size =8,num_heads =8,):
+    def __init__(self,chars,temprature,num_embeddings,block_size,num_heads,):
         super().__init__()
 
 
@@ -119,7 +122,7 @@ class Transformer(nn.Module):
 
         for block in self.blocks:
             x = block(x)
-            
+
 
         
 
