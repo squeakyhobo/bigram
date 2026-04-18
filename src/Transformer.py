@@ -58,7 +58,22 @@ class MultiHeadedAttention(nn.Module):
         out = torch.cat([h(x) for h in self.heads], dim=-1)
         return out 
             
-            
+class Block(nn.Module):
+    def __init__(self,temprature,num_embeddings,block_size,num_heads,head_size):
+        super().__init__() 
+
+
+        self.heads = MultiHeadedAttention(num_heads,head_size,num_embeddings,block_size,temprature)
+        self.feed_forward = nn.Sequential(nn.Linear(num_embeddings,num_embeddings),
+                                          nn.ReLU())    
+
+    def forward(self,x):
+        x =self.heads(x)
+        x= self.feed_forward(x)
+
+        return x
+
+
 
 class Transformer(nn.Module): 
 
@@ -73,7 +88,13 @@ class Transformer(nn.Module):
         
         self.vocab_embedding_table = nn.Embedding(len(chars),num_embeddings)
         self.positon_embedding = nn.Embedding(block_size,num_embeddings)
-        self.Heads = MultiHeadedAttention(num_heads,self.head_size,num_embeddings,block_size,temprature)
+        self.blocks = nn.Sequential(
+            Block(temprature,num_embeddings,block_size,num_heads,self.head_size),
+            Block(temprature,num_embeddings,block_size,num_heads,self.head_size),
+            Block(temprature,num_embeddings,block_size,num_heads,self.head_size)
+            
+        )
+                                          
         self.lm_head =nn.Linear(num_embeddings,len(chars))
         
         
@@ -96,7 +117,11 @@ class Transformer(nn.Module):
         
         x = token_embed + pos_embed 
 
-        x =self.Heads(x)
+        for block in self.blocks:
+            x = block(x)
+            
+
+        
 
         logits = self.lm_head(x)
 
