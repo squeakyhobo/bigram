@@ -2,6 +2,7 @@ import os
 from dotenv import load_dotenv
 import torch
 import torch.nn.functional as F
+
 from src.Transformer import Transformer
 
 load_dotenv()
@@ -38,54 +39,56 @@ def get_batch(data):
     
     return x.to(device), y.to(device)
 
-def main():
-    # Initialize and move model to device
+def main(train):
     model = Transformer(
-        chars=chars, 
-        temperature=temperature, 
-        num_embeddings=number_embeddings, 
-        block_size=block_size, 
-        num_heads=num_heads, 
-        dropout_rate=dropout_rate
-    )
+                chars=chars, 
+                temperature=temperature, 
+                num_embeddings=number_embeddings, 
+                block_size=block_size, 
+                num_heads=num_heads, 
+                dropout_rate=dropout_rate
+            )
     model.to(device)
+    if train:
+        # Initialize and move model to device
+           
 
-    # Encode data and split into train/val
-    data = torch.tensor(model.encode(text), dtype=torch.long)
-    n = int(len(data) * 0.9)
-    # Move datasets to device
-    train_data = data[:n].to(device)
-    val_data = data[n:].to(device)
+            # Encode data and split into train/val
+            data = torch.tensor(model.encode(text), dtype=torch.long)
+            n = int(len(data) * 0.9)
+            # Move datasets to device
+            train_data = data[:n].to(device)
+            val_data = data[n:].to(device)
 
-    # Use AdamW (standard for Transformers)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
+            # Use AdamW (standard for Transformers)
+            optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
-    print("Training model...")
-    model.train() # Turn on dropout
-    
-    for step in range(train_iterations):
-        xb, yb = get_batch(train_data)
-        
-        logits = model(xb)
-        B, T, C = logits.shape
-        logits = logits.view(B*T, C)
-        targets = yb.view(B*T)
-        
-        loss = F.cross_entropy(logits, targets)
-        
-        optimizer.zero_grad(set_to_none=True)
-        loss.backward()
-        optimizer.step()
+            print("Training model...")
+            model.train() # Turn on dropout
+            
+            for step in range(train_iterations):
+                xb, yb = get_batch(train_data)
+                
+                logits = model(xb)
+                B, T, C = logits.shape
+                logits = logits.view(B*T, C)
+                targets = yb.view(B*T)
+                
+                loss = F.cross_entropy(logits, targets)
+                
+                optimizer.zero_grad(set_to_none=True)
+                loss.backward()
+                optimizer.step()
 
-        if step % 500 == 0:
-            print(f"Step {step}: training loss {loss.item():.4f}")
-            print("\nSaving model...")
-            torch.save(model.state_dict(), 'transformer_model.pth')
+                if step % 500 == 0:
+                    print(f"Step {step}: training loss {loss.item():.4f}")
+                    print("\nSaving model...")
+                    torch.save(model.state_dict(), 'transformer_model.pth')
 
-
-    print("\nGeneration Started:")
-    # generate() now correctly finds the model's device and sets eval() mode
-    model.generate()
+    else:
+        print("\nGeneration Started:")
+        model.load_state_dict(torch.load('transformer_model.pth', map_location=device))
+        model.generate()
 
 if __name__ == "__main__":
-    main()
+    main(False)
